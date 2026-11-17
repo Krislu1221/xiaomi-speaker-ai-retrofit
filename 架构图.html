@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>小爱音箱改造:两代方案架构</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: "PingFang SC","Microsoft YaHei",sans-serif;
+    background:#faf7f2; color:#2b2b2b;
+    width:1600px; padding:44px 52px 40px;
+  }
+  .page-title { font-size:34px; font-weight:700; letter-spacing:1px; }
+  .page-sub { font-size:17px; color:#8a8378; margin-top:8px; }
+  .plan { margin-top:30px; background:#ffffff; border:1.5px solid #e6dfd3; border-radius:16px; padding:26px 30px 24px; position:relative; }
+  .plan.final { border:2px solid #b5482f; box-shadow:0 6px 24px rgba(181,72,47,.08); }
+  .plan-head { display:flex; align-items:baseline; gap:14px; }
+  .plan-no { font-size:15px; font-weight:700; color:#fff; background:#8a8378; border-radius:6px; padding:3px 10px; letter-spacing:1px; }
+  .final .plan-no { background:#b5482f; }
+  .plan-name { font-size:24px; font-weight:700; }
+  .plan-tag { font-size:14px; color:#fff; background:#2b2b2b; border-radius:20px; padding:4px 14px; }
+  .final .plan-tag { background:#b5482f; }
+  .chain { display:flex; align-items:stretch; gap:0; margin-top:22px; }
+  .node { flex:1; border:1.5px solid #d8d0c2; border-radius:12px; padding:16px 18px; background:#fdfbf7; }
+  .node h4 { font-size:18px; font-weight:700; }
+  .node .role { font-size:13px; color:#8a8378; margin-top:4px; }
+  .node ul { list-style:none; margin-top:10px; }
+  .node li { font-size:14px; line-height:1.75; color:#4a453c; padding-left:14px; position:relative; }
+  .node li::before { content:"·"; position:absolute; left:2px; color:#b5482f; font-weight:700; }
+  .node.cloud { background:#f2efe9; border-color:#c9c1b2; }
+  .arrow { width:74px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
+  .arrow .line { font-size:26px; color:#b5482f; font-weight:700; }
+  .arrow .lbl { font-size:12px; color:#8a8378; text-align:center; line-height:1.4; }
+  .verdict { display:flex; gap:14px; margin-top:20px; }
+  .vbox { flex:1; border-radius:10px; padding:12px 16px; font-size:14.5px; line-height:1.8; }
+  .vbox b { display:block; font-size:14px; margin-bottom:2px; }
+  .vpro { background:#f4f7f1; border:1px solid #d9e2cf; color:#41552f; }
+  .vcon { background:#fbf1ee; border:1px solid #ecd2ca; color:#8c3b26; }
+  .footnote { margin-top:14px; font-size:13px; color:#8a8378; }
+  .footnote b { color:#b5482f; }
+</style>
+</head>
+<body>
+  <div class="page-title">小爱音箱改造:从"纯云端"到"本地 + 云端"混合</div>
+  <div class="page-sub">音箱永远只负责三件事:听(麦克风阵列)、说(喇叭)、醒(本地唤醒)。变化的是"脑子"放在哪里。</div>
+
+  <!-- 方案一:纯云端 -->
+  <div class="plan">
+    <div class="plan-head">
+      <span class="plan-no">方案一</span>
+      <span class="plan-name">纯云端方案</span>
+      <span class="plan-tag">初代尝试 · 已实测豆包 / MOSS 两条</span>
+    </div>
+    <div class="chain">
+      <div class="node">
+        <h4>🎙️ 小爱音箱</h4>
+        <div class="role">只当"耳朵 + 嘴巴"</div>
+        <ul>
+          <li>本地唤醒词识别</li>
+          <li>麦克风持续收音</li>
+          <li>喇叭播放回答</li>
+        </ul>
+      </div>
+      <div class="arrow"><div class="lbl">音频流</div><div class="line">⇄</div><div class="lbl">实时上行</div></div>
+      <div class="node">
+        <h4>💻 电脑中转桥</h4>
+        <div class="role">音频搬运工(BlackHole 虚拟声卡)</div>
+        <ul>
+          <li>把音箱声音喂给云端</li>
+          <li>把云端回答推回音箱</li>
+          <li>16k 采样,即采即转</li>
+        </ul>
+      </div>
+      <div class="arrow"><div class="lbl">WebSocket</div><div class="line">⇄</div><div class="lbl">云端推理</div></div>
+      <div class="node cloud">
+        <h4>☁️ 云端实时语音大模型</h4>
+        <div class="role">听懂、思考、开口,全在云上</div>
+        <ul>
+          <li>豆包 Seeduplex(实测)</li>
+          <li>MOSS-Live(实测)</li>
+          <li>按量计费、断网即哑</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict">
+      <div class="vbox vpro"><b>优点</b>搭建最快,半天通;模型聪明,对话质量高;音箱端零改动。</div>
+      <div class="vbox vcon"><b>痛点</b>回答延迟随网络波动;长期按量付费;断网=失聪;每句话都要出网,隐私不可控。</div>
+    </div>
+  </div>
+
+  <!-- 方案二:混合 -->
+  <div class="plan final">
+    <div class="plan-head">
+      <span class="plan-no">方案二</span>
+      <span class="plan-name">本地 + 云端 混合方案</span>
+      <span class="plan-tag">最终采用</span>
+    </div>
+    <div class="chain">
+      <div class="node">
+        <h4>🎙️ 小爱音箱</h4>
+        <div class="role">常驻端侧:醒 · 听 · 说</div>
+        <ul>
+          <li>本地唤醒词(离线可用)</li>
+          <li>语音活动检测 + 断句</li>
+          <li>支持随时打断插话</li>
+        </ul>
+      </div>
+      <div class="arrow"><div class="lbl">局域网</div><div class="line">⇄</div><div class="lbl">毫秒级</div></div>
+      <div class="node" style="border-color:#b5482f; border-width:2px;">
+        <h4>🧠 本地电脑 · 桌灵大脑</h4>
+        <div class="role">主力推理全在本地</div>
+        <ul>
+          <li>语音识别 ASR(本地小模型)</li>
+          <li>大模型对话(自有 Agent)</li>
+          <li>本地克隆音色 TTS,首包约 0.45s</li>
+        </ul>
+      </div>
+      <div class="arrow"><div class="lbl">按需调用</div><div class="line">⇄</div><div class="lbl">可断可降级</div></div>
+      <div class="node cloud">
+        <h4>☁️ 云端(可选增强)</h4>
+        <div class="role">只做本地搞不定的事</div>
+        <ul>
+          <li>云端大模型 API 补充知识</li>
+          <li>联网查询等工具调用</li>
+          <li>断网时自动降级,本地照常应答</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict">
+      <div class="vbox vpro"><b>为什么最终选它</b>打断响应在本地,体验接近真人;断网不哑;音色是自己的;日常对话数据不出家门。</div>
+      <div class="vbox vcon"><b>代价</b>要一台常开的电脑;本地模型调优需要折腾;架构比纯云端多一层。</div>
+    </div>
+    <div class="footnote">※ 实测口径:本地克隆音色首包约 <b>0.45s</b>;云端 TTS 首包普遍 <b>3~4.5s</b>——实时对话场景,这个差距就是"能用"与"难用"的分界线。</div>
+  </div>
+</body>
+</html>
